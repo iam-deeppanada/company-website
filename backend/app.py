@@ -69,6 +69,31 @@ def contact():
 def home():
     return "Company Backend Running"
 
+@app.route('/admin', methods=['GET'])
+def admin():
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM contacts ORDER BY created_at DESC")
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    data = []
+
+    for r in rows:
+        data.append({
+            "id": str(r[0]),
+            "name": r[1],
+            "email": r[2],
+            "phone": r[3],
+            "subject": r[4],
+            "message": r[5]
+        })
+
+    return {"contacts": data}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
