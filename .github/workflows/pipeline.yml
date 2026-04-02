@@ -1,9 +1,7 @@
-# name: CI-CD Pipeline
+# name: CI-CD SSH Deployment
 
 # on:
-#   push:
-#     branches:
-#       - main
+#  workflow_dispatch:
 
 # env:
 #   AWS_REGION: us-east-1
@@ -99,3 +97,4 @@
 #             docker run -d -p 5000:5000 \
 #             --name company-backend \
 #             689593414482.dkr.ecr.us-east-1.amazonaws.com/company-backend:latest 
+# 
