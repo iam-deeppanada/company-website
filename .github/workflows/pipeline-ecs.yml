@@ -1,0 +1,136 @@
+# # Pre-setup Required:
+# # ------------------
+# # 1. AWS Account is required.
+# # 2. Create an IAM user for GitHub Actions with the following policy:
+# #    - AmazonEC2ContainerRegistryFullAccess
+# #    - AmazonECSFullAccess (if deploying to ECS)
+# # 3. In GitHub, go to your repository:
+# #    Settings -> Secrets and variables -> Actions -> New repository secret
+# #    Add the following secrets:
+# #      - AWS_ACCESS_KEY_ID
+# #      - AWS_SECRET_ACCESS_KEY
+# #      - AWS_ACCOUNT_ID
+# #      - AWS_REGION
+# #
+# # 4. Configure the environment variables in this workflow (replace values as needed):
+# #    ECR AWS_REGION: <your-aws-region>
+# #    ACCOUNT_ID: <your-aws-account-id>
+# #    ECR_REPOSITORY: <your-ecr-repo-name>
+# #    ECS_CLUSTER: <your-ecs-cluster-name>
+# #    ECS_SERVICE: <your-ecs-service-name>
+# #    TASK_DEFINITION: <your-ecs-task-definition-name>
+
+name: CI-CD with ECS Deployment (Disabled)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "This workflow is disabled"
+
+# name: CI-CD ECS Deployment 
+
+# on:
+#   workflow_dispatch
+
+# env:
+#   AWS_REGION: us-east-1
+#   ACCOUNT_ID: 689593414482
+#   ECR_REPOSITORY: company-backend
+#   ECS_CLUSTER: company-backend
+#   ECS_SERVICE: company-backend-task-service
+#   TASK_DEFINITION: company-backend-task
+
+# jobs:
+
+#   build:
+#     name: Build Docker Image
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Build Docker image
+#         run: docker build -t company-backend ./backend
+
+
+#   test:
+#     name: Test Container
+#     needs: build
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: Test container locally
+#         run: |
+#           docker build -t company-backend ./backend
+#           docker run -d -p 5000:5000 --name test-container company-backend
+#           sleep 5
+#           curl -f http://localhost:5000 || exit 1
+#           docker stop test-container
+#           docker rm test-container
+
+
+#   push:
+#     name: Push Image to ECR
+#     needs: test
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Login to ECR
+#         run: |
+#           aws ecr get-login-password --region $AWS_REGION \
+#           | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+#       - name: Build and Push Docker Image
+#         run: |
+#           docker build -t $ECR_REPOSITORY ./backend
+#           docker tag $ECR_REPOSITORY:latest $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
+#           docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
+
+
+#   approval:
+#     name: Manual Approval
+#     needs: push
+#     runs-on: ubuntu-latest
+#     environment: production
+
+#     steps:
+#       - name: Waiting for approval
+#         run: echo "Waiting for deployment approval"
+
+
+#   deploy:
+#     name: Deploy to ECS
+#     needs: approval
+#     runs-on: ubuntu-latest
+
+#     steps:
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Force ECS Service Deployment
+#         run: |
+#           aws ecs update-service \
+#             --cluster $ECS_CLUSTER \
+#             --service $ECS_SERVICE \
+#             --force-new-deployment
