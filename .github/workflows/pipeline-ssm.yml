@@ -1,4 +1,4 @@
-name: CI-CD SSM Deployment
+name: CI-CD with SSM Deployment
 
 on:
   workflow_dispatch:

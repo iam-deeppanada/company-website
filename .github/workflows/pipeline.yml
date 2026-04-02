@@ -1,7 +1,17 @@
-# name: CI-CD SSH Deployment
+name: CI-CD with SSH (Disabled)
 
-# on:
-#  workflow_dispatch:
+on:
+  workflow_dispatch:
+
+jobs:
+  disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "This workflow is disabled"
+
+# ------------------------------------------------
+# Original workflow kept below for reference
+# ------------------------------------------------
 
 # env:
 #   AWS_REGION: us-east-1
@@ -9,92 +19,18 @@
 #   ACCOUNT_ID: 689593414482
 
 # jobs:
-
 #   build:
 #     name: Build Docker Image
 #     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v4
-
-#       - name: Build Docker Image
-#         run: docker build -t company-backend ./backend
-
+#
 #   test:
 #     name: Test Container Build
-#     runs-on: ubuntu-latest
-#     needs: build
-
-#     steps:
-#       - name: Run simple test
-#         run: echo "Build successful, tests passed"
-
+#
 #   approve:
 #     name: Manual Approval
-#     runs-on: ubuntu-latest
-#     needs: test
-#     environment: production
-
-#     steps:
-#       - name: Waiting for approval
-#         run: echo "Waiting for manual approval"
-
+#
 #   push-ecr:
 #     name: Push Image to ECR
-#     runs-on: ubuntu-latest
-#     needs: approve
-
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v4
-
-#       - name: Configure AWS Credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#           aws-region: ${{ secrets.AWS_REGION }}
-
-#       - name: Login to ECR
-#         run: |
-#           aws ecr get-login-password --region $AWS_REGION \
-#           | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-
-#       - name: Build Image
-#         run: docker build -t $ECR_REPOSITORY ./backend
-
-#       - name: Tag Image
-#         run: |
-#           docker tag $ECR_REPOSITORY:latest \
-#           $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
-
-#       - name: Push Image
-#         run: |
-#           docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
-
+#
 #   deploy:
 #     name: Deploy to EC2
-#     runs-on: ubuntu-latest
-#     needs: push-ecr
-
-#     steps:
-#       - name: Deploy via SSH
-#         uses: appleboy/ssh-action@v1.0.3
-#         with:
-#           host: ${{ secrets.EC2_HOST }}
-#           username: ${{ secrets.EC2_USER }}
-#           key: ${{ secrets.EC2_SSH_KEY }}
-#           script: |
-#             aws ecr get-login-password --region us-east-1 \
-#             | docker login --username AWS --password-stdin 689593414482.dkr.ecr.us-east-1.amazonaws.com
-
-#             docker pull 689593414482.dkr.ecr.us-east-1.amazonaws.com/company-backend:latest
-
-#             docker stop company-backend || true
-#             docker rm company-backend || true
-
-#             docker run -d -p 5000:5000 \
-#             --name company-backend \
-#             689593414482.dkr.ecr.us-east-1.amazonaws.com/company-backend:latest 
-# 
