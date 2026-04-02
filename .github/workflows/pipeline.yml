@@ -1,3 +1,19 @@
+# # Pre-setup Required:
+# # ------------------
+# # 1. AWS Account is required.
+# # 2. Create an IAM user for GitHub Actions with the following policy:
+# #    - AmazonEC2ContainerRegistryFullAccess
+# #    - AmazonECSFullAccess (if deploying to ECS)
+# # 3. In GitHub, go to your repository:
+# #    Settings -> Secrets and variables -> Actions -> New repository secret
+# #    Add the following secrets:
+# #      - AWS_ACCESS_KEY_ID
+# #      - AWS_SECRET_ACCESS_KEY
+# #      - AWS_ACCOUNT_ID
+# #      - AWS_REGION
+# # 4. Configure the environment variables in this workflow (replace values as needed):
+# #   
+
 name: CI-CD with SSH (Disabled)
 
 on:
