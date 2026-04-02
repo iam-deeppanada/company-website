@@ -12,16 +12,37 @@ env:
 jobs:
 
   build:
+    name: Build Docker Image
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
+      - name: Build Docker Image
         run: docker build -t company-backend ./backend
 
-  push:
+
+  test:
+    name: Test Container Build
     needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test Container
+        run: |
+          docker build -t company-backend ./backend
+          docker run -d -p 5000:5000 --name test-container company-backend
+          sleep 5
+          curl -f http://localhost:5000 || exit 1
+          docker stop test-container
+          docker rm test-container
+
+
+  push:
+    name: Push Image to ECR
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -45,8 +66,21 @@ jobs:
           docker tag $ECR_REPOSITORY:latest $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
           docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
 
-  deploy:
+
+  approval:
+    name: Manual Approval
     needs: push
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Waiting for approval
+        run: echo "Waiting for approval before deployment"
+
+
+  deploy:
+    name: Deploy to EC2 via SSM
+    needs: approval
     runs-on: ubuntu-latest
 
     steps:
@@ -58,7 +92,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy via SSM
+      - name: Deploy using SSM
         run: |
           aws ssm send-command \
           --instance-ids ${{ env.INSTANCE_ID }} \
