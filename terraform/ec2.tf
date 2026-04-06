@@ -34,7 +34,7 @@ resource "aws_security_group" "web_sg" {
 
 resource "aws_instance" "company_server" {
 
-  ami           = "ami-0c7217cdde317cfec"
+  ami           = "ami-002dc43e5c8f29c3e"
   instance_type = "t3.micro"
 
   key_name = "aws-dev-key"
