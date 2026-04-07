@@ -15,11 +15,10 @@ env:
 jobs:
 
   build:
-    name: Build Docker Image
+    name: Build & Push Docker Image
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -29,6 +28,11 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/aws-oidc-role
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
+          aws ecr create-repository --repository-name $ECR_REPOSITORY
+
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION \
@@ -36,26 +40,23 @@ jobs:
           --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - name: Build Docker Image
-        run: |
-          docker build -t $ECR_REPOSITORY ./backend
+        run: docker build -t $ECR_REPOSITORY ./backend
 
-      - name: Tag Image
+      - name: Tag Docker Image
         run: |
           docker tag $ECR_REPOSITORY:latest \
           $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
 
-      - name: Push Image
+      - name: Push Docker Image
         run: |
           docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
 
-
   terraform:
-    name: Create Infrastructure
+    name: Create EC2 Infrastructure
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -76,14 +77,12 @@ jobs:
         run: terraform apply -auto-approve
         working-directory: terraform
 
-
   deploy:
-    name: Deploy to Kubernetes
+    name: Deploy to K3s on EC2
     needs: terraform
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -92,14 +91,22 @@ jobs:
 
       - name: Deploy using SSM
         run: |
+          # Get EC2 ID with tag from Terraform
           INSTANCE_ID=$(aws ec2 describe-instances \
-          --filters "Name=tag:Name,Values=company-k8s-server" \
-          --query "Reservations[*].Instances[*].InstanceId" \
-          --output text)
+            --filters "Name=tag:Name,Values=company-k8s-server" \
+            --query "Reservations[*].Instances[*].InstanceId" \
+            --output text)
 
+          # Construct dynamic ECR image URL
+          ECR_IMAGE="${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest"
+
+          # Download deployment.yaml to EC2 and apply
           aws ssm send-command \
-          --instance-ids $INSTANCE_ID \
-          --document-name "AWS-RunShellScript" \
-          --parameters commands="[
-          'sudo kubectl apply -f https://raw.githubusercontent.com/YOUR_REPO/deployment.yaml'
-          ]"
+            --instance-ids $INSTANCE_ID \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="[ \
+              'sudo apt update && sudo apt install -y gettext-base', \
+              'curl -o /tmp/deployment.yaml https://raw.githubusercontent.com/iam-deeppanada/company-website/main/backend/k8/deployment.yaml', \
+              'export ECR_IMAGE=$ECR_IMAGE && envsubst < /tmp/deployment.yaml > /tmp/deployment-processed.yaml', \
+              'sudo kubectl apply -f /tmp/deployment-processed.yaml' \
+            ]"

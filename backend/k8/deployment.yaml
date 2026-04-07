@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: company-website-container
-        image: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/company-website:latest
+        image: ${ECR_IMAGE}
         ports:
         - containerPort: 5000
 ---
