@@ -14,21 +14,24 @@ env:
 
 jobs:
 
+# ---------------- BUILD ----------------
+
   build:
-    name: Build & Push Docker Image
+    name: Build and Push Image
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/aws-oidc-role
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Ensure ECR repository exists
+      - name: Create ECR Repository if not exists
         run: |
           aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
           aws ecr create-repository --repository-name $ECR_REPOSITORY
@@ -42,14 +45,17 @@ jobs:
       - name: Build Docker Image
         run: docker build -t $ECR_REPOSITORY ./backend
 
-      - name: Tag Docker Image
+      - name: Tag Image
         run: |
           docker tag $ECR_REPOSITORY:latest \
           $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
 
-      - name: Push Docker Image
+      - name: Push Image
         run: |
           docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
+
+
+# ---------------- TERRAFORM APPLY ----------------
 
   terraform:
     name: Create EC2 Infrastructure
@@ -57,10 +63,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/aws-oidc-role
@@ -77,13 +84,17 @@ jobs:
         run: terraform apply -auto-approve
         working-directory: terraform
 
+
+# ---------------- DEPLOY ----------------
+
   deploy:
-    name: Deploy to K3s on EC2
+    name: Deploy to Kubernetes
     needs: terraform
     runs-on: ubuntu-latest
 
     steps:
-      - name: Configure AWS credentials
+
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/aws-oidc-role
@@ -91,22 +102,53 @@ jobs:
 
       - name: Deploy using SSM
         run: |
-          # Get EC2 ID with tag from Terraform
+
           INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=company-k8s-server" \
-            --query "Reservations[*].Instances[*].InstanceId" \
-            --output text)
+          --filters "Name=tag:Name,Values=company-k8s-server" \
+          --query "Reservations[*].Instances[*].InstanceId" \
+          --output text)
 
-          # Construct dynamic ECR image URL
-          ECR_IMAGE="${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest"
-
-          # Download deployment.yaml to EC2 and apply
           aws ssm send-command \
-            --instance-ids $INSTANCE_ID \
-            --document-name "AWS-RunShellScript" \
-            --parameters commands="[ \
-              'sudo apt update && sudo apt install -y gettext-base', \
-              'curl -o /tmp/deployment.yaml https://raw.githubusercontent.com/iam-deeppanada/company-website/main/backend/k8/deployment.yaml', \
-              'export ECR_IMAGE=$ECR_IMAGE && envsubst < /tmp/deployment.yaml > /tmp/deployment-processed.yaml', \
-              'sudo kubectl apply -f /tmp/deployment-processed.yaml' \
-            ]"
+          --instance-ids $INSTANCE_ID \
+          --document-name "AWS-RunShellScript" \
+          --parameters commands="[
+          'curl -o /tmp/deployment.yaml https://raw.githubusercontent.com/iam-deeppanada/company-website/main/backend/k8/deployment.yaml',
+          'sudo kubectl apply -f /tmp/deployment.yaml'
+          ]"
+
+
+# ---------------- DESTROY ----------------
+
+  destroy:
+    name: Destroy Infrastructure
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: destroy-env
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/aws-oidc-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: terraform
+
+      - name: Delete ECR Repository
+        run: |
+          aws ecr delete-repository \
+          --repository-name $ECR_REPOSITORY \
+          --force
