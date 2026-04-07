@@ -64,12 +64,12 @@ resource "aws_instance" "company_server" {
 
 }
 
-resource "aws_ecr_repository" "app_repo" {
-  name                 = "company-backend"
-  force_delete = true
-  image_tag_mutability = "MUTABLE"
+# resource "aws_ecr_repository" "app_repo" {
+#   name                 = "company-backend"
+#   force_delete = true
+#   image_tag_mutability = "MUTABLE"
  
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
+#   image_scanning_configuration {
+#     scan_on_push = true
+#   }
+# }
