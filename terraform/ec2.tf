@@ -36,7 +36,7 @@ resource "aws_instance" "company_server" {
 
   ami           = "ami-002dc43e5c8f29c3e"
   instance_type = "t3.micro"
-
+  iam_instance_profile = "aws-oidc-role"
   key_name = "aws-dev-key"
 
   associate_public_ip_address = true
@@ -51,9 +51,18 @@ resource "aws_instance" "company_server" {
     volume_type = "gp2"
   }
 
-
+   
   tags = {
     Name = "company-website-server"
   }
 
+}
+
+resource "aws_ecr_repository" "app_repo" {
+  name                 = "company-backend"
+  image_tag_mutability = "MUTABLE"
+ 
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
