@@ -32,17 +32,17 @@ resource "aws_security_group" "web_sg" {
   }
 }
 
-# --- IAM Instance Profile for EC2 ---
-resource "aws_iam_instance_profile" "company_profile" {
-  name = "company-oidc-profile"
-  role = "aws-oidc-role"  # This must be your existing IAM role
-}
+# # --- IAM Instance Profile for EC2 ---
+# resource "aws_iam_instance_profile" "company_profile" {
+#   name = "company-oidc-profile"
+#   role = "aws-oidc-role"  # This must be your existing IAM role
+# }
 
 resource "aws_instance" "company_server" {
 
   ami           = "ami-002dc43e5c8f29c3e"
   instance_type = "t3.micro"
-  iam_instance_profile = aws_iam_instance_profile.company_profile.name
+  iam_instance_profile = "company-oidc-profile"
   key_name = "aws-dev-key"
 
   associate_public_ip_address = true
