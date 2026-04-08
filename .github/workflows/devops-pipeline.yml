@@ -84,6 +84,12 @@ jobs:
         run: terraform apply -auto-approve
         working-directory: terraform
 
+      - name: Upload Terraform State
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state
+          path: terraform/terraform.tfstate
+
 
 # ---------------- DEPLOY ----------------
 
@@ -142,6 +148,12 @@ jobs:
       - name: Terraform Init
         run: terraform init
         working-directory: terraform
+
+      - name: Download Terraform State
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-state
+          path: terraform
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
